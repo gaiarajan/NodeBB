@@ -6,14 +6,21 @@ import posts from '../posts';
 import categories from '../categories';
 import plugins from '../plugins';
 import batch from '../batch';
-import { TagObject, TopicObject } from '../types';
+import { TopicObject, TagObject, TopicObjectSlim } from '../types';
+
+interface Thumbs{
+deleteAll(tid:number): Promise<void>;
+}
+interface Events{
+purge(tid: number):Promise<void>;
+}
 
 
 interface Topics {
         getTopicField(tid: number, field: string): Promise<keyof TopicObject>;
-        getTopicFields(tid: number, fields: string[]): Promise<any>;
-        getTopicData(tid: number): Promise<(keyof TopicObject) | TopicObject>;
-        getTopicTags (tid: number) : Promise<string[]>;
+        getTopicFields(tid: number, fields: string[]): Promise<TopicObject>;
+        getTopicData(tid: number): Promise<TopicObject>;
+        getTopicTags (tid: number) : Promise<TagObject[]>;
         getPids(tid:number): Promise<number[]>;
         setTopicField(tid: number, field: string, value: number): Promise<void>;
         setTopicFields(tid: number, data: any) : Promise<void>;
@@ -24,18 +31,14 @@ interface Topics {
         restore(tid: number): Promise<void>;
         purgePostsAndTopic(tid: number, uid: number):Promise<void>;
         purge(tid: number, uid: number):Promise<void>;
+        thumbs:Thumbs;
+        events:Events;
+        getPostCount (tid:number) : Promise<number>;
+
 }
 
-function foo(Topics: Topics) {
-    Topics.delete = async function (tid, uid) {
-        await removeTopicPidsFromCid(tid);
-        await Topics.setTopicFields(tid, {
-            deleted: 1,
-            deleterUid: uid,
-            deletedTimestamp: Date.now(),
-        });
-    };
 
+function foo(Topics: Topics) {
     async function removeTopicPidsFromCid(tid) {
         const [cid, pids] = await Promise.all([
             Topics.getTopicField(tid, 'cid'),
@@ -44,6 +47,14 @@ function foo(Topics: Topics) {
         await db.sortedSetRemove(`cid:${cid}:pids`, pids);
         await categories.updateRecentTidForCid(cid);
     }
+    Topics.delete = async function (tid, uid) {
+        await removeTopicPidsFromCid(tid);
+        await Topics.setTopicFields(tid, {
+            deleted: '1',
+            deleterUid: uid,
+            deletedTimestamp: Date.now(),
+        });
+    };
 
     async function addTopicPidsToCid(tid) {
         const [cid, pids] = await Promise.all([
@@ -140,19 +151,23 @@ function foo(Topics: Topics) {
                 `uid:${topicData.uid}:topics`,
             ], tid),
             user.decrementUserFieldBy(topicData.uid, 'topiccount', 1),
-        ]);
+                        ]);
         await categories.updateRecentTidForCid(topicData.cid);
     }
 
+    async function getPostCount(tid) {
+        await Topics.getTopicField(tid, 'postcount');
+    }
     async function reduceCounters(tid) {
         const incr = -1;
         await db.incrObjectFieldBy('global', 'topicCount', incr);
-        const topicData = await Topics.getTopicFields(tid, ['cid', 'postcount']);
-        const postCountChange = incr * topicData.postcount;
+        const topicCid = await Topics.getTopicField(tid, 'cid');
+        const topicPC = await Topics.getPostCount(tid);
+        const postCountChange = incr * topicPC;
         await Promise.all([
             db.incrObjectFieldBy('global', 'postCount', postCountChange),
-            db.incrObjectFieldBy(`category:${topicData.cid}`, 'post_count', postCountChange),
-            db.incrObjectFieldBy(`category:${topicData.cid}`, 'topic_count', incr),
+            db.incrObjectFieldBy(`category:${topicCid}`, 'post_count', postCountChange),
+            db.incrObjectFieldBy(`category:${topicCid}`, 'topic_count', incr),
         ]);
     }
 }
