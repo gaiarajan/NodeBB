@@ -6,10 +6,27 @@ import posts from '../posts';
 import categories from '../categories';
 import plugins from '../plugins';
 import batch from '../batch';
+import { TagObject, TopicObject } from '../types';
 
 
+interface Topics {
+        getTopicField(tid: number, field: string): Promise<keyof TopicObject>;
+        getTopicFields(tid: number, fields: string[]): Promise<any>;
+        getTopicData(tid: number): Promise<(keyof TopicObject) | TopicObject>;
+        getTopicTags (tid: number) : Promise<string[]>;
+        getPids(tid:number): Promise<number[]>;
+        setTopicField(tid: number, field: string, value: number): Promise<void>;
+        setTopicFields(tid: number, data: any) : Promise<void>;
+        deleteTopicFields(tid: number, fields: string[]): Promise<void>;
+        deleteTopicTags (tid: number): Promise<void>;
+        delete(tid: number, uid: number):Promise<void>;
+        removeTopicPidsFromCid(tid:number):Promise<void>;
+        restore(tid: number): Promise<void>;
+        purgePostsAndTopic(tid: number, uid: number):Promise<void>;
+        purge(tid: number, uid: number):Promise<void>;
+}
 
-module.exports = function (Topics) {
+function foo(Topics: Topics) {
     Topics.delete = async function (tid, uid) {
         await removeTopicPidsFromCid(tid);
         await Topics.setTopicFields(tid, {
@@ -138,4 +155,5 @@ module.exports = function (Topics) {
             db.incrObjectFieldBy(`category:${topicData.cid}`, 'topic_count', incr),
         ]);
     }
-};
+}
+export = foo;
