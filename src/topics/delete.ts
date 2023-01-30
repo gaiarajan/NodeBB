@@ -1,6 +1,4 @@
 import db from '../database';
-
-
 import user from '../user';
 import posts from '../posts';
 import categories from '../categories';
@@ -14,7 +12,6 @@ deleteAll(tid:number): Promise<void>;
 interface Events{
 purge(tid: number):Promise<void>;
 }
-
 
 interface Topics {
         getTopicField(tid: number, field: string): Promise<keyof TopicObject>;
@@ -34,7 +31,6 @@ interface Topics {
         thumbs:Thumbs;
         events:Events;
         getPostCount (tid:number) : Promise<number>;
-
 }
 
 
